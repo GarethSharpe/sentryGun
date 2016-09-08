@@ -1,0 +1,74 @@
+#include <Servo.h>
+
+// Servos for the x and y coordinates 
+Servo yservo;  
+Servo xservo;
+
+// Set initial values for x and y
+int ypos = 0;
+int xpos= 0;
+
+void setup() {
+  
+  // Analog pin 0 for the x servo
+  xservo.attach(2);
+  // Analog pin 1 for the y servo
+  yservo.attach(13);  
+ 
+  Serial.begin(19200);
+  Serial.println("Sentry Mode: Activated");
+  
+}
+
+void loop() {
+  
+  // Value to be sent to the servo
+  static int value = 0; 
+  
+  if (Serial.available()) {
+    
+    // Read the incoming character from the serial port and assign 
+    // to 'incomingVariable'
+    char incomingVariable = Serial.read();
+
+     Serial.println(incomingVariable);
+     
+    // Make a switch based on the value of incomingVariable
+    switch(incomingVariable) { 
+      case '0'...'9': // if it's numeric
+        value = value * 10 + incomingVariable - '0';
+        
+        /* If the incoming variables sent are 45x, 'value' is the value 
+          we want to send to the servo which is currently at position 0
+           
+          The first incoming variable (char incomingVariable) is 4 so:
+          
+          0*10 = 0 + 4 - 0 = 4;
+          
+          The second incoming variable is 5;
+          
+          4*10 = 40 + 5 = 45 - 0 = 45;
+          
+          The third incoming variable is not a number between 0 and 9
+          so we must make a new case */
+        break;
+     
+     /* If the next character is 'x', we send the value of 'incomingVariable'
+       which is now 45 to the x servo and then reset 'incomingVariable' to 0 */
+      case 'x':
+        xservo.write(value);
+        value = 0;
+        Serial.println(value);
+        break;
+      
+      // Do the same thing if the next character is 'y'
+      case 'y':
+        yservo.write(value);
+        value = 0;
+        Serial.println(value);
+        break;
+
+        
+    }
+  }
+}
