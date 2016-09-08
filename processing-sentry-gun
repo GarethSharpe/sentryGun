@@ -1,0 +1,150 @@
+import processing.video.*;
+import ddf.minim.*;
+import processing.serial.*; 
+
+// The serial port we will be using
+Serial port; 
+
+// Import minim library
+Minim minim;
+AudioPlayer portalSound;
+
+// Variable for capture device
+Capture video;
+
+// Previous frame
+PImage prevFrame;
+
+// How different must a pixel be to be a "motion" pixel
+float threshold = 200;
+
+void setup() {
+  
+  size(720,540);
+  background(0);
+  
+  /* List COM-ports:
+  Select first com-port from the list (com 'usbmodem621' for me)
+  You will want to change the [0] to select the correct device
+  Remember the list starts at [0] for the first option. 
+  
+  println(Serial.list()); 
+  port = new Serial(this, Serial.list()[5], 19200);
+  
+  */
+  
+  // Using the default capture device
+  video = new Capture(this, width, height);
+ 
+  // Create an empty image the same size as the video and start video capture
+  prevFrame = createImage(video.width,video.height,RGB);
+    video.start();
+  
+  // Start the Minim library and load sounds from the data folder
+/*  minim = new Minim(this);
+  // "Turret activated"
+  portalSound1 = minim.loadFile("portalSound1.wav");
+  // "I see you"
+  portalSound2 = minim.loadFile("portalSound2.wav");
+  // "Where are you?"
+  portalSound3 = minim.loadFile("portalSound3.wav");
+*/
+}
+
+void draw() {
+  
+  tint(255, 126);
+  image(video,0,0);
+  
+  // Capture video if its availiable
+  if (video.available()) {
+  // Save previous frame for motion detection
+    prevFrame.copy(video,0,0,video.width,video.height,0,0,video.width,video.height);
+    prevFrame.updatePixels();
+    video.read();
+  }
+
+  // These are the variables we'll need to find the average X and Y
+  float sumX = 0;
+  float sumY = 0;
+  int motionCount = 0; 
+
+  // Begin loop to walk through every pixel
+  for (int x = 0; x < video.width; x++ ) {
+    for (int y = 0; y < video.height; y++ ) {
+        
+      // What is the current color
+      color current = video.pixels[x+y*video.width];
+
+      // What is the previous color
+      color previous = prevFrame.pixels[x+y*video.width];
+
+      // Compare colors (previous vs. current)
+      float r1 = red(current); 
+      float g1 = green(current);
+      float b1 = blue(current);
+      float r2 = red(previous); 
+      float g2 = green(previous);
+      float b2 = blue(previous);
+
+      /* Motion for an individual pixel is the difference 
+      between the previous color and current color. */
+      float diff = dist(r1,g1,b1,r2,g2,b2);
+
+      // If it's a motion pixel add up the x's and the y's
+      if (diff > threshold) {
+        sumX += x;
+        sumY += y;
+        motionCount++;
+      }
+    }
+  }
+  
+
+// Average location is total location divided by the number of motion pixels.
+float avgX = sumX / motionCount; 
+float avgY = sumY / motionCount;
+  
+// Using to map the avg x,y coordinates for the Arduino servos to read (0,180)
+float pan = map(avgX, 0, width, 0, 180);
+float tilt = map(avgY, 0, height, 0, 180);
+
+/* Because the Arduino can only read one byte at a time, decimal numbers are
+not prefered, so round the pan and tilt coordinates to an int value */
+int panRounded = round(pan);
+int tiltRounded = round(tilt);
+
+// If pan motion is detected, write the coordinates followed by the letter x
+if (pan > 0) {
+  port.write(panRounded + "x");
+  println(panRounded + "x");
+}
+
+// If tilt motion is detected, follow same steps as pan motion
+if (tilt > 0) {
+  port.write(tiltRounded + "y");
+}
+  
+// Draw two lines based on pixel coordinates to be used as 'crosshairs'
+strokeWeight(4);
+stroke(226, 204, 0);
+line(0, avgY, width, avgY);
+line(avgX, 0, avgX, height); 
+
+// Draw a circle based on average motion
+smooth();
+fill(0);
+ellipse(avgX, avgY, 30, 30); 
+
+}
+
+void stop() {
+
+/* song.close();
+song2.close();
+song3.close();
+minim.stop();
+*/
+
+super.stop();
+}
